@@ -45,61 +45,63 @@ func (s *HoymilesWifi) Gather(acc telegraf.Accumulator) error {
 		return err
 	}
 
-	// parse response
-	fields := parseResponseData(result)
-	tags := map[string]string{}
-	timestamp := time.Unix(int64(result.Timestamp), 0)
-
-	acc.AddFields("hoymiles_wifi", fields, tags, timestamp)
+	// handle response
+	processResponseData(acc, result)
 
 	return nil
 }
 
-func parseResponseData(data *models.RealDataNewResDTO) map[string]interface{} {
-	result := map[string]interface{}{}
+func processResponseData(acc telegraf.Accumulator, data *models.RealDataNewResDTO) {
+	timestamp := time.Unix(int64(data.Timestamp), 0)
 
-	dtu_data := map[string]interface{}{
+	dtuFields := map[string]interface{}{
 		"dtu_power":        float64(data.DtuPower) / 10, // Watts
 		"dtu_energy_daily": data.DtuDailyEnergy,         // Watt-hours
 	}
-
-	maps.Copy(result, dtu_data)
-	maps.Copy(result, parseSgsData(data.SgsData))
-	maps.Copy(result, parsePvData(data.PvData))
-
-	return result
-}
-
-func parseSgsData(sgsData []*models.SGSMO) map[string]interface{} {
-	result := map[string]interface{}{}
-
-	for i, v := range sgsData {
-		maps.Copy(result, map[string]interface{}{
-			"inverter" + strconv.Itoa(i) + "_voltage":     float64(v.Voltage) / 10,     // Volts
-			"inverter" + strconv.Itoa(i) + "_frequency":   float64(v.Frequency) / 100,  // Hertz
-			"inverter" + strconv.Itoa(i) + "_current":     float64(v.Current) / 10,     // Amps
-			"inverter" + strconv.Itoa(i) + "_power":       float64(v.ActivePower) / 10, // Watts
-			"inverter" + strconv.Itoa(i) + "_temperature": float64(v.Temperature) / 10, // Degree Celsius
-		})
+	dtuTags := map[string]string{
+		"dtu_serial_number": data.DeviceSerialNumber,
 	}
 
-	return result
+	acc.AddFields("hoymiles_dtu", dtuFields, dtuTags, timestamp)
+
+	processSgsData(acc, data.SgsData, dtuTags, timestamp)
+	processPvData(acc, data.PvData, dtuTags, timestamp)
+
 }
 
-func parsePvData(pvData []*models.PvMO) map[string]interface{} {
-	result := map[string]interface{}{}
+func processSgsData(acc telegraf.Accumulator, sgsData []*models.SGSMO, dtuTags map[string]string, timestamp time.Time) {
+	for _, v := range sgsData {
+		inverterFields := map[string]interface{}{
+			"inverter_voltage":     float64(v.Voltage) / 10,     // Volts
+			"inverter_frequency":   float64(v.Frequency) / 100,  // Hertz
+			"inverter_current":     float64(v.Current) / 10,     // Amps
+			"inverter_power":       float64(v.ActivePower) / 10, // Watts
+			"inverter_temperature": float64(v.Temperature) / 10, // Degree Celsius
+		}
 
-	for i, v := range pvData {
-		maps.Copy(result, map[string]interface{}{
-			"pv" + strconv.Itoa(i) + "_voltage":      float64(v.Voltage) / 10,  // Volts
-			"pv" + strconv.Itoa(i) + "_current":      float64(v.Current) / 100, // Amps
-			"pv" + strconv.Itoa(i) + "_power":        float64(v.Power) / 10,    // Watts
-			"pv" + strconv.Itoa(i) + "_energy_daily": v.EnergyDaily,            // Watt-hours
-			"pv" + strconv.Itoa(i) + "_energy_total": v.EnergyTotal,            // Watt-hours
-		})
+		inverterTags := maps.Clone(dtuTags)
+		inverterTags["inverter_serial_number"] = strconv.FormatInt(v.SerialNumber, 10)
+
+		acc.AddFields("hoymiles_inverter", inverterFields, inverterTags, timestamp)
 	}
+}
 
-	return result
+func processPvData(acc telegraf.Accumulator, pvData []*models.PvMO, dtuTags map[string]string, timestamp time.Time) {
+	for _, v := range pvData {
+		pvFields := map[string]interface{}{
+			"pv_voltage":      float64(v.Voltage) / 10,  // Volts
+			"pv_current":      float64(v.Current) / 100, // Amps
+			"pv_power":        float64(v.Power) / 10,    // Watts
+			"pv_energy_daily": v.EnergyDaily,            // Watt-hours
+			"pv_energy_total": v.EnergyTotal,            // Watt-hours
+		}
+
+		pvTags := maps.Clone(dtuTags)
+		pvTags["inverter_serial_number"] = strconv.FormatInt(v.SerialNumber, 10)
+		pvTags["inverter_port_number"] = strconv.FormatInt(int64(v.PortNumber), 10)
+
+		acc.AddFields("hoymiles_pv", pvFields, pvTags, timestamp)
+	}
 }
 
 func init() {
