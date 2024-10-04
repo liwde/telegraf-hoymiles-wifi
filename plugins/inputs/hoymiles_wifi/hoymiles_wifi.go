@@ -74,7 +74,7 @@ func processSgsData(acc telegraf.Accumulator, sgsData []*models.SGSMO, dtuTags m
 		inverterFields := map[string]interface{}{
 			"inverter_voltage":     float64(v.Voltage) / 10,     // Volts
 			"inverter_frequency":   float64(v.Frequency) / 100,  // Hertz
-			"inverter_current":     float64(v.Current) / 10,     // Amps
+			"inverter_current":     float64(v.Current) / 100,    // Amps
 			"inverter_power":       float64(v.ActivePower) / 10, // Watts
 			"inverter_temperature": float64(v.Temperature) / 10, // Degree Celsius
 		}
