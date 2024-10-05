@@ -2,6 +2,7 @@ package hoymiles_wifi
 
 import (
 	_ "embed"
+	"fmt"
 	"maps"
 	"strconv"
 	"time"
@@ -78,7 +79,7 @@ func processSgsData(acc telegraf.Accumulator, sgsData []*models.SGSMO, dtuTags m
 		}
 
 		inverterTags := maps.Clone(dtuTags)
-		inverterTags["inverter_serial_number"] = strconv.FormatInt(v.SerialNumber, 10)
+		inverterTags["inverter_serial_number"] = fmt.Sprintf("%X", v.SerialNumber)
 
 		acc.AddFields("hoymiles_inverter", inverterFields, inverterTags, timestamp)
 	}
@@ -95,7 +96,7 @@ func processPvData(acc telegraf.Accumulator, pvData []*models.PvMO, dtuTags map[
 		}
 
 		pvTags := maps.Clone(dtuTags)
-		pvTags["inverter_serial_number"] = strconv.FormatInt(v.SerialNumber, 10)
+		pvTags["inverter_serial_number"] = fmt.Sprintf("%X", v.SerialNumber)
 		pvTags["inverter_port_number"] = strconv.FormatInt(int64(v.PortNumber), 10)
 
 		acc.AddFields("hoymiles_pv", pvFields, pvTags, timestamp)
