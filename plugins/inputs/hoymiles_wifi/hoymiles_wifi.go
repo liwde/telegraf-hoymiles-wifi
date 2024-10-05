@@ -19,8 +19,6 @@ var sampleConfig string
 type HoymilesWifi struct {
 	Hostname string          `toml:"hostname"`
 	Log      telegraf.Logger `toml:"-"`
-
-	client *hoymiles_wifi.ClientData
 }
 
 func (*HoymilesWifi) SampleConfig() string {
@@ -28,19 +26,19 @@ func (*HoymilesWifi) SampleConfig() string {
 }
 
 func (s *HoymilesWifi) Init() error {
-	// set up client
-	s.client = hoymiles_wifi.NewClient(s.Hostname, common.DTU_PORT)
-	s.Log.Debugf("Connected to %v", s.client.ConnectionInfo)
 	return nil
 }
 
 func (s *HoymilesWifi) Gather(acc telegraf.Accumulator) error {
+	client := hoymiles_wifi.NewClient(s.Hostname, common.DTU_PORT)
+	defer client.CloseConnection()
+
 	// build request
 	request := &models.RealDataNewReqDTO{}
 	request.Time = int32(time.Now().Unix())
 	request.TimeYmdHms = time.Now().Format("2006-01-02 15:04:05")
 
-	result, err := s.client.GetRealDataNew(request)
+	result, err := client.GetRealDataNew(request)
 	if err != nil {
 		return err
 	}
